@@ -9,11 +9,11 @@ public class LoadBalancer implements Runnable {
     private final List<BlockingQueue<PacketTask>> fpQueues;
 
     public LoadBalancer(
-            BlockingQueue<PacketTask> in,
-            List<BlockingQueue<PacketTask>> fps) {
+            BlockingQueue<PacketTask> inputQueue,
+            List<BlockingQueue<PacketTask>> fpQueues) {
 
-        this.inputQueue = in;
-        this.fpQueues = fps;
+        this.inputQueue = inputQueue;
+        this.fpQueues = fpQueues;
     }
 
     @Override
@@ -21,11 +21,20 @@ public class LoadBalancer implements Runnable {
         try {
             while (true) {
                 PacketTask task = inputQueue.take();
+
+                if (task.isPoison()) {
+                    // Forward poison to all fast paths
+                    for (BlockingQueue<PacketTask> q : fpQueues) {
+                        q.put(PacketTask.POISON_PILL);
+                    }
+                    break;
+                }
+
                 int idx = Math.abs(task.tuple.hashCode()) % fpQueues.size();
                 fpQueues.get(idx).put(task);
             }
         } catch (InterruptedException e) {
-            // shutdown
+            // exit
         }
     }
 }

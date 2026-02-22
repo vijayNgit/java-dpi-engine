@@ -9,8 +9,8 @@ import util.Stats;
 
 public class MainMT {
 
-    static final int LB_COUNT = 2;
-    static final int FP_COUNT = 4;
+    static int LB_COUNT = 2;
+    static int FP_COUNT = 4;
 
     // Global stats
     public static AtomicLong totalPackets = new AtomicLong();
@@ -29,25 +29,37 @@ public class MainMT {
         // -------- CLI PARSING (C++ style) --------
         for (int i = 2; i < args.length; i++) {
             switch (args[i]) {
-                case "--block-app":
-                    String app = args[++i].toUpperCase();
-                    rules.blockApp(AppType.valueOf(app));
-                    System.out.println("[Rules] Blocked app: " + app);
-                    break;
 
-                case "--block-domain":
-                    String domain = args[++i];
-                    rules.blockDomain(domain);
-                    System.out.println("[Rules] Blocked domain: " + domain);
-                    break;
+        case "--block-app":
+            String app = args[++i].toUpperCase();
+            rules.blockApp(AppType.valueOf(app));
+            System.out.println("[Rules] Blocked app: " + app);
+            break;
 
-                case "--block-ip":
-                    String ip = args[++i];
-                    rules.blockIP(ip);
-                    System.out.println("[Rules] Blocked IP: " + ip);
-                    break;
-            }
+        case "--block-domain":
+            String domain = args[++i];
+            rules.blockDomain(domain);
+            System.out.println("[Rules] Blocked domain: " + domain);
+            break;
+
+        case "--block-ip":
+            String ip = args[++i];
+            rules.blockIP(ip);
+            System.out.println("[Rules] Blocked IP: " + ip);
+            break;
+
+        // ✅ NEW FLAGS
+        case "--fps":
+            FP_COUNT = Integer.parseInt(args[++i]);
+            break;
+
+        case "--lbs":
+            LB_COUNT = Integer.parseInt(args[++i]);
+            break;
         }
+    }
+    System.out.println("\n[Config] FastPath threads : " + FP_COUNT);
+    System.out.println("[Config] LoadBalancers    : " + LB_COUNT);
 
         PcapReader reader = new PcapReader();
         PcapWriter writer = new PcapWriter();
@@ -89,6 +101,12 @@ public class MainMT {
             FiveTuple tuple = PacketParser.parse(pkt);
             readerQueue.put(new PacketTask(pkt, tuple));
         }
+        // Signal shutdown
+            for (int i = 0; i < LB_COUNT; i++) {
+            readerQueue.put(PacketTask.POISON_PILL);
+            }
+        // Signal writer shutdown
+            outputQueue.put(PcapReader.RawPacket.POISON_PILL);
 
         System.out.println("[Reader] Done reading packets");
 
@@ -96,9 +114,17 @@ public class MainMT {
         Thread.sleep(2000);
 
         System.out.println("\n========== PROCESSING REPORT ==========");
-        System.out.println("Total Packets:   " + Stats.totalPackets.get());
-        System.out.println("Forwarded:       " + Stats.forwardedPackets.get());
-        System.out.println("Dropped:         " + Stats.droppedPackets.get());
+        System.out.println("Total Packets:    " + Stats.totalPackets.get());
+        System.out.println("Forwarded:        " + Stats.forwardedPackets.get());
+        System.out.println("Dropped:          " + Stats.droppedPackets.get());
+
+        System.out.println("\nDropped by Application:");
+        for (var entry : Stats.droppedByApp.entrySet()) {
+            System.out.printf("  %-10s : %d%n",
+                entry.getKey(),
+                entry.getValue().get());
+}
+
         System.out.println("======================================");
     }
 }

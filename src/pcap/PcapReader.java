@@ -53,11 +53,19 @@ public class PcapReader {
     }
 
     public static class RawPacket {
-        public int tsSec, tsUsec, inclLen, origLen;
-        public byte[] data;
+    public int tsSec, tsUsec, inclLen, origLen;
+    public byte[] data;
 
-        public RawPacket(int a, int b, int c, int d, byte[] e) {
-            tsSec = a; tsUsec = b; inclLen = c; origLen = d; data = e;
-        }
+    // ✅ Writer poison pill
+    public static final RawPacket POISON_PILL =
+            new RawPacket(-1, -1, -1, -1, null);
+
+    public RawPacket(int tsSec, int tsUsec, int inclLen, int origLen, byte[] data) {
+        this.tsSec = tsSec;
+        this.tsUsec = tsUsec;
+        this.inclLen = inclLen;
+        this.origLen = origLen;
+        this.data = data;
     }
+}
 }

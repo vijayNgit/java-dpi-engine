@@ -38,8 +38,11 @@ public class FastPathWorker implements Runnable {
         try {
             while (true) {
                 PacketTask task = inputQueue.take();
+                if (task.isPoison()) {
+                break; // graceful exit
+                }
                 process(task);
-            }
+        }
         } catch (InterruptedException e) {
             // graceful exit
         }
@@ -81,6 +84,7 @@ public class FastPathWorker implements Runnable {
             outputQueue.put(task.packet);
         } else {
             Stats.droppedPackets.incrementAndGet();
+            Stats.incrementDropped(flow.app);
         }
     }
 }
